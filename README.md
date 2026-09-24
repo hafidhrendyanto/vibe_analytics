@@ -24,14 +24,13 @@ The two compose: the first builds the knowledge, the second spends it.
 
 You do **not** need to clone the repo yourself first. The `skills` CLI
 (skills.sh, the installer of the open agent-skills ecosystem) fetches the
-GitHub repository named `<owner>/vibe_analytics` on its own — replace
-`<owner>` with the GitHub account that hosts this repo — then scans it
+GitHub repository `hafidhrendyanto/vibe_analytics` on its own, then scans it
 recursively for `SKILL.md` directories, lets you pick which skills to
 install, and links or copies them into the supported coding agents
 (symlink by default; `--copy` for copies). Useful flags:
 
 ```bash
-npx skills add <owner>/vibe_analytics
+npx skills add hafidhrendyanto/vibe_analytics
 ```
 
 | Flag | Behavior |
@@ -42,10 +41,7 @@ npx skills add <owner>/vibe_analytics
 | `-l, --list` | List available skills without installing |
 | `--copy` | Copy files instead of symlinking |
 
-Two preconditions for the one-liner: the repo must actually be on GitHub
-under that `<owner>` (public; private repos need your own GitHub auth), and
-it is not there yet — until it is pushed, use the manual install below. The
-CLI also has not been verified against `pi` as a target; if it does not
+The CLI has not been verified against `pi` as a target; if it does not
 detect pi in your setup, install the skills into pi's directories directly:
 
 | pi scope | Location | Command |
