@@ -76,45 +76,40 @@ low-rank hole — the ranking in Step 4 follows from this purpose.
 ```
 
 The **README** carries: a one-paragraph opening (what this index is, how
-profiles are organized), the schema-discovery how-to with the probe templates
-(copy-pasteable — this is where the probe loop's queries live), the
-project-ID mapping (slug → real project), the table quick-reference (Table |
-Type | Purpose | Profile), an unreviewed-datasets note, and the table profile
-template.
+profiles are organized), the schema-discovery and partition-check how-tos
+with the probe templates (copy-pasteable — this is where the probe loop's
+queries live), the project-ID mapping (slug → real project), how to find a
+table's profile from its full path, and the table quick-reference (Table |
+Type | Purpose | Profile).
 
-Each **profile** is:
+Each **profile** follows the bundled template at
+`references/profile-template.md`: the identity list (Full path, Type), then
+Purpose, Business purpose, Key fields, First seen in, Used in, Example
+values, Partitioning, and Relationships.
 
-```markdown
-# `<dataset>.<table>`
-
-- **Full path**: `<project_id>.<dataset>.<table>`
-- **Type**: TABLE / VIEW / WILDCARD VIEW / MATERIALIZED VIEW
-
-## Purpose
-...
-## Business purpose
-...
-## Key fields
-- `column` (TYPE) — description
-...
-## First seen in
-...
-## Used in
-...
-## Partitioning
-- **Probe** (get_table or INFORMATION_SCHEMA, <date>): what the object reports.
-- (dated dry-run or filtered-query evidence where it exists)
-## Relationships
-- Joined with `<other_table>` on `<key>`
-```
+**Example values** hold five sample rows from the sample-rows probe, as a
+table dated with its probe, plus the row count with its source. On a narrow
+table keep every column; on a wide one keep the columns a query would
+filter, join, or group on. A JSON column is recorded in full, never
+truncated: its structure is what a query extracts from, so each row's value
+goes below the table as a pretty-printed `json` block, and the cell points to
+it. Never store personal data: values in columns holding names, emails,
+phone numbers, addresses, or identity documents are written as `<redacted>`,
+including the same fields nested inside JSON. Until the probe has run,
+values may be drafted from the SQL, marked `(inferred from SQL)`.
 
 House rules for every profile, non-negotiable:
 
 - **Identity first**: the title is `dataset.table`; the Full path bullet carries
   the fully-qualified name, because that is what a reader copies to query.
-- **Type is the physical kind only** — TABLE, VIEW, WILDCARD VIEW,
-  MATERIALIZED VIEW — verified against metadata, never guessed from prose.
-  Passthrough provenance ("VIEW, passthrough to `...`") rides in the Type line.
+- **Type is the physical kind only**, copied from the table-type probe's
+  `table_type`: TABLE (the probe says `BASE TABLE`), VIEW, MATERIALIZED VIEW,
+  EXTERNAL, SNAPSHOT, or CLONE. A family of shards queried as `<prefix>_*`
+  has no single object, so it is `WILDCARD (<member type>)`, typed by running
+  the table-type probe with `table_name LIKE '<prefix>%'`. Never guessed from
+  prose: where the dataset denies metadata, the Type line reads
+  `unverified (metadata denied, <date>)`. Passthrough provenance ("VIEW,
+  passthrough to `...`") rides in the Type line.
 - **Key fields** hold the complete column list where the schema is verified;
   columns without a known meaning stay bare (`column` (TYPE)), never invented.
   Where only a count is known, a closing sentence states it.
@@ -179,9 +174,9 @@ extract, per table referenced in `FROM` / `JOIN` clauses:
   what the table is for — draft Purpose and Business purpose from them, and
   mark every draft as a draft.
 
-Write the profile skeletons now: identity list (ask the user or infer the
-project slug; Type stays a hole until probed), the mined sections, and holes
-left visibly open. Build the README's quick-reference as you go, one row per
+Write the profile skeletons now from `references/profile-template.md`:
+identity list (ask the user or infer the project slug; Type stays a hole
+until probed), the mined sections, and holes left visibly open. Build the README's quick-reference as you go, one row per
 profile, linking to it. Nothing is invented; skeletons are honest about gaps.
 
 ## Step 3: The knowledge ledger
@@ -345,7 +340,7 @@ WHERE
   table_list.table_name IN ('<table_a>', '<table_b>');
 ```
 
-Read the `ddl` for three facts:
+Read the `ddl` for two facts:
 
 - **For a table**: the `PARTITION BY` clause names the partition column and
   its granularity (`DATE(event_time)`, or `_PARTITIONDATE` for
@@ -354,8 +349,6 @@ Read the `ddl` for three facts:
 - **For a view**: the DDL has no partitioning of its own, but its `FROM`
   clause names the backing table. That table is where the partitioning
   lives, so it is the next thing to probe.
-- `table_type` reports `BASE TABLE` for a plain table; the profile's Type
-  line records it as TABLE.
 
 Metadata access is granted per dataset: if `INFORMATION_SCHEMA` returns
 "Access Denied" for a dataset (common for a view's backing dataset), skip
@@ -414,8 +407,8 @@ WHERE <partition_column> >= <recent_date>
 LIMIT 5;
 ```
 
-Always carry the partition filter once it is known, so the meaning probes
-stay cheap. Ask the user to describe anything the columns' names alone do not
+Its five rows become the profile's Example values table. Always carry the
+partition filter once it is known, so the meaning probes stay cheap. Ask the user to describe anything the columns' names alone do not
 explain; their domain knowledge is a source the profile should cite.
 
 ## Step 5: The README
@@ -424,8 +417,7 @@ When the probe loop winds down, finish the README. Read and adapt the bundled
 template at `references/readme-template.md`: it carries the full skeleton —
 the opening, the schema-discovery and partition-probe how-tos (the same
 templates the loop used, so future readers can re-verify), the project
-mapping, the quick-reference table, the unreviewed-tables note, and the
-profile template. Fill every placeholder from what the build learned, and
+mapping, how to find a profile, and the quick-reference table. Fill every placeholder from what the build learned, and
 delete the optional sections the project does not need. The index is
 maintainable only if re-probing is documented, not just performed once.
 
