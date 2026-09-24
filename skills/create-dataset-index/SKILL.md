@@ -125,9 +125,9 @@ House rules for every profile, non-negotiable:
   Key fields sit after both, because by then the reader knows what the table
   is and why the columns matter. Business motivation before technical fact;
   write both for a junior data scientist joining the team.
-- **No em-dashes**, table nulls are `n/a`, and nothing is invented: a profile
-  grows only from SQL evidence, probe results, or a user statement. A hole
-  stays a hole until filled, visibly.
+- **Table nulls are `n/a`, and nothing is invented**: a profile grows only
+  from SQL evidence, probe results, or a user statement. A hole stays a hole
+  until filled, visibly.
 
 ## Mode selection
 
@@ -390,10 +390,15 @@ WHERE <column> >= <recent_timestamp_or_date>
 )
 ```
 
-A large drop in reported bytes between B and A confirms the column prunes; no
-drop means it is not a partition column, or the predicate is not the pruning
-one. Because a dry run executes against the view's definition, this works
-through views too — it measures the behavior that matters, not the wrapper.
+A large drop in reported bytes between B and A confirms the column
+**prunes**, by partitioning or by clustering: a filter on a clustered column
+can cut the estimate as sharply as a partition filter does, so the drop alone
+does not say which. The DDL probe says which; when the DDL is unreadable,
+record `prunes on <column> (partition or clustering, unverified which)`
+rather than guessing. No drop means the column does not prune, or the
+predicate is not the pruning one. Because a dry run is planned against the
+view's definition, this works through views too — it measures the behavior
+that matters, not the wrapper.
 Run both in the same session so the comparison is fair, and record both
 numbers with their date in the profile's Partitioning section.
 
@@ -402,14 +407,34 @@ numbers with their date in the profile's Partitioning section.
 Closes hole 6's grounding when names and user confirmation are not enough.
 
 ```sql
-SELECT * FROM `<project>.<dataset>.<table>`
-WHERE <partition_column> >= <recent_date>
+SELECT
+  sample_row.<column_a>,
+  sample_row.<column_b>
+FROM
+  `<project>.<dataset>.<table>` AS sample_row
+WHERE
+  sample_row.<partition_column> >= <day_start>
+  AND sample_row.<partition_column> < <day_end>
 LIMIT 5;
 ```
 
-Its five rows become the profile's Example values table. Always carry the
-partition filter once it is known, so the meaning probes stay cheap. Ask the user to describe anything the columns' names alone do not
-explain; their domain knowledge is a source the profile should cite.
+Its five rows become the profile's Example values table. `LIMIT` does not
+reduce the bill: BigQuery bills every selected column across every scanned
+partition, so an unfiltered `SELECT * ... LIMIT 5` on a large table can cost
+tens of dollars. Four rules keep it cheap:
+
+- **Only after the partition is confirmed** (or on a table known to be
+  small). Hole 6 ranks last for this reason; never run this probe early.
+- **Exactly one day**, bounded on both sides: `<day_start>` and `<day_end>`
+  are one recent day apart (`DATE '...'` for a DATE column, `TIMESTAMP '...'`
+  for a TIMESTAMP one). An open-ended `>=` silently widens with the date.
+- **Name the columns** the Example values table will keep; `SELECT *` only on
+  a narrow table.
+- **Dry-run it first** with the dry-run function; above 1 GB, narrow the
+  columns before handing the probe to the user.
+
+Ask the user to describe anything the columns' names alone do not explain;
+their domain knowledge is a source the profile should cite.
 
 ## Step 5: The README
 

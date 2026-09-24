@@ -52,8 +52,9 @@ FROM `<project>.<dataset>.<table>`
 ```
 
 Replace the inner query with one filtered on the suspected partition column;
-a large byte drop confirms it. Record both numbers with their date in the
-table's profile.
+a large byte drop confirms the column prunes. Clustered columns prune too, so
+check the table's DDL to tell partitioning from clustering. Record both
+numbers with their date in the table's profile.
 
 ---
 
