@@ -122,7 +122,8 @@ The gap becomes a hole in the index, not a silent assumption in the query.
 - **Partition filters are for tables that need them.** A large table is read
   through its partition filter once the column is known; a small table needs
   no filter at all. If the size is unknown and the table may be large, close
-  that hole before running anything expensive.
+  that hole before running anything expensive. The filter prunes only the
+  table it names, so each large table in a join gets its own.
 - **Write queries for the reader who runs them**: fully-qualified table paths
   copied from the profiles, the workspace's dialect, no invented columns. A
   column that is not in the index is a question, not a guess.

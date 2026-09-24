@@ -109,6 +109,14 @@ table prunes fine. A request-log table may be partitioned on
 prune almost as well; pair both columns when the mapping needs both, but
 keep the pruning predicate on the declared column.
 
+**Every large table in a join needs its own filter.** A partition filter
+prunes only the table it names: filtering `orders.created_at` to one day
+still scans every partition of the `order_items` joined to it. Give each
+large table its own range on its own partition column. When the child's
+timestamp can drift from the parent's, widen the child's window by a buffer
+(`order_items.created_at >= <start> - INTERVAL 7 DAY`) rather than dropping
+it; the join still keeps only the matching rows.
+
 Clustered columns prune scans the same way: on an events table clustered by
 `event_type`, restricting `event_type IN (...)` to exactly the types the
 logic inspects reads only those blocks. Column pruning is the same economy
