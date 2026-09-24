@@ -1,0 +1,10 @@
+{
+  "name": "vibe-analytics",
+  "version": "0.1.0",
+  "description": "Pairing skills for warehouse analytics: build a datasets index and use it to draft, run, and refine BigQuery queries with a coding agent.",
+  "license": "MIT",
+  "keywords": ["pi-package", "agent-skills", "claude-code", "bigquery", "analytics"],
+  "pi": {
+    "skills": ["./skills"]
+  }
+}
