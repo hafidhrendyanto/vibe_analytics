@@ -16,7 +16,7 @@ warehouse and are written in its dialect.
 | Skill | What it does |
 |-------|--------------|
 | [`create-dataset-index`](skills/create-dataset-index/SKILL.md) | Builds a `datasets/` documentation tree: a README index plus one profile per table (`tables/<project-slug>/<dataset>/<table>.md`). Mines a repository full of SQL files, or seeds from tables and queries you name in chat, then closes knowledge gaps through an iterative probe loop. |
-| [`pair-analytics`](skills/pair-analytics/SKILL.md) | Uses the index to pair on analytics: turns a natural-language request into a correct, cheap query written to `datasets/analytics/`, gets the result back through you (pasted or as a downloaded CSV), and proposes a notebook — marimo preferred, Jupyter fine; polars preferred over pandas — that shows the insight from the downloaded file. |
+| [`pair-analytics`](skills/pair-analytics/SKILL.md) | Uses the index to pair on analytics, one step at a time: agrees on a plan and its assumptions, checks them with up to three probe queries per round shown in the chat, then writes the correct, cost-efficient final query to `datasets/analytics/`, gets the result back through you (pasted or as a downloaded CSV), and proposes a notebook — marimo preferred, Jupyter fine; polars preferred over pandas — that shows the insight from the downloaded file. |
 
 The two compose: the first builds the knowledge, the second spends it.
 
@@ -92,8 +92,12 @@ and date. The loop's ledger lives in the conversation; the profiles on disk
 are the durable record, so you can pause into another session at any time.
 
 **`pair-analytics`** — once the index exists, pairs with you on analytics:
-restates the request as a query plan, writes the query into
-`datasets/analytics/<child>/`, you run it in Mode Analytics, and the result
+restates the request as a plan and lists the assumptions it rests on, then
+stops for your correction. It checks those assumptions with small probe
+queries shown in the chat, up to three per round so you can run them side by
+side in Mode Analytics, and reads each result back before going further. Only
+then does it write the final query into `datasets/analytics/<child>/`. You
+run it in Mode, and the result
 comes back through Mode's own result actions — copied into the chat for
 debugging and stepping stones, or downloaded as a CSV into the repo when it
 is large or notebook-bound. A landed CSV earns a proposed notebook that
