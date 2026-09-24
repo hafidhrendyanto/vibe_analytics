@@ -218,7 +218,9 @@ This is the heart of the skill, and it is a conversation, not a script.
 6. **Example values and row counts** — grounding, when a meaning is doubtful.
 
 **Ask in small batches.** One to three probe queries per round, always for
-the highest-ranked hole, formatted to copy-paste. Announce the loop's state
+the highest-ranked hole, formatted to copy-paste. The count is of pastes, not
+tables: one statement that batches many tables (see the templates) is one
+probe. Announce the loop's state
 before the probes: what is known, what each probe will close.
 
 **Every probe is copy-pasteable SQL** the user runs in their analytics
@@ -340,6 +342,36 @@ WHERE
   table_list.table_name IN ('<table_a>', '<table_b>');
 ```
 
+To cover several datasets in one paste, stack one `SELECT` per dataset with
+`UNION ALL` and add `table_list.table_schema` so each row names its dataset:
+
+```sql
+SELECT
+  table_list.table_schema,
+  table_list.table_name,
+  table_list.table_type,
+  table_list.ddl
+FROM
+  `<project>.<dataset_a>.INFORMATION_SCHEMA.TABLES` AS table_list
+WHERE
+  table_list.table_name IN ('<table_a>', '<table_b>')
+UNION ALL
+SELECT
+  table_list.table_schema,
+  table_list.table_name,
+  table_list.table_type,
+  table_list.ddl
+FROM
+  `<project>.<dataset_b>.INFORMATION_SCHEMA.TABLES` AS table_list
+WHERE
+  table_list.table_name IN ('<table_c>');
+```
+
+One failing dataset fails the whole statement, and the error may name a
+dataset that is fine on its own. Two causes: a dataset that denies metadata
+access, and a dataset stored in a different region from the rest. Stack only
+datasets already known to answer; probe an untested dataset on its own first.
+
 Read the `ddl` for two facts:
 
 - **For a table**: the `PARTITION BY` clause names the partition column and
@@ -369,28 +401,26 @@ any surface. Confirm the function's exact name once when the loop starts;
 if the workspace provides none, fall back to a runtime comparison as a weak
 signal.
 
-Ask the user to run both calls and paste both results:
+Each table needs two calls, unfiltered and filtered on the suspected
+partition column. Put them in one labeled statement so the pasted rows
+describe themselves:
 
 ```sql
--- Probe A (unfiltered):
-SELECT `functions.dry_run`(
-"""
-SELECT *
-FROM `<project>.<dataset>.<table>`
-"""
-)
-
--- Probe B (filtered on the suspected partition column):
-SELECT `functions.dry_run`(
-"""
-SELECT *
-FROM `<project>.<dataset>.<table>`
-WHERE <column> >= <recent_timestamp_or_date>
-"""
-)
+SELECT '<table>' AS table_name, 'unfiltered' AS variant, `functions.dry_run`("""
+SELECT * FROM `<project>.<dataset>.<table>`
+""") AS result
+UNION ALL
+SELECT '<table>', '<column> one day', `functions.dry_run`("""
+SELECT * FROM `<project>.<dataset>.<table>`
+WHERE <column> >= <day_start> AND <column> < <day_end>
+""");
 ```
 
-A large drop in reported bytes between B and A confirms the column
+One statement holds a whole round: keep adding `UNION ALL` rows for more
+tables, and for a second candidate column when the SQL suggests one. Each
+call is a dry run, so a long batch still costs nothing.
+
+A large drop in reported bytes from the unfiltered row confirms the column
 **prunes**, by partitioning or by clustering: a filter on a clustered column
 can cut the estimate as sharply as a partition filter does, so the drop alone
 does not say which. The DDL probe says which; when the DDL is unreadable,

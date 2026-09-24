@@ -40,19 +40,22 @@ ORDER BY
 ## How to Check a Partition Column
 
 The dry-run function returns a query's scan estimate without executing it.
-Run the unfiltered and filtered calls and compare the reported bytes:
+Run the unfiltered and filtered calls in one statement and compare the
+reported bytes:
 
 ```sql
-SELECT `functions.dry_run`(
-"""
-SELECT *
-FROM `<project>.<dataset>.<table>`
-"""
-)
+SELECT '<table>' AS table_name, 'unfiltered' AS variant, `functions.dry_run`("""
+SELECT * FROM `<project>.<dataset>.<table>`
+""") AS result
+UNION ALL
+SELECT '<table>', '<column> one day', `functions.dry_run`("""
+SELECT * FROM `<project>.<dataset>.<table>`
+WHERE <column> >= <day_start> AND <column> < <day_end>
+""");
 ```
 
-Replace the inner query with one filtered on the suspected partition column;
-a large byte drop confirms the column prunes. Clustered columns prune too, so
+A large byte drop from the unfiltered row confirms the column prunes. Add
+`UNION ALL` rows to check more tables in the same paste. Clustered columns prune too, so
 check the table's DDL to tell partitioning from clustering. Record both
 numbers with their date in the table's profile.
 
