@@ -98,11 +98,21 @@ The gap becomes a hole in the index, not a silent assumption in the query.
    that only wants answering; the notebook can follow once the analysis
    grows. Ask two questions before creating one:
 
-   - **Marimo or Jupyter?** Marimo is preferred, driven live with the
-     `marimo-pair` skill when it is available; Jupyter is fine when the
+   - **Marimo or Jupyter?** Marimo is preferred; Jupyter is fine when the
      user's stack prefers it.
    - **Polars or pandas?** Polars is preferred; pandas is fine when the user
      asks for it.
+
+   For marimo, how the notebook gets written depends on whether it is open
+   in a live session:
+
+   - **A live marimo kernel is running** (the user has `marimo edit` open):
+     drive it through the `marimo-pair` skill. The kernel owns the file
+     while the session runs, so a file edit never reaches the user and may
+     be overwritten on the next save.
+   - **No live kernel:** write or edit the `.py` file directly, following
+     `references/marimo-patterns.md`. Before handing it over, run the
+     checks in that file.
 
    The notebook reads the downloaded CSV — never queries the warehouse, never
    calls the network. It is the lens on the result, not a second execution
