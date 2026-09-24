@@ -280,6 +280,55 @@ STRUCT column repeats once per nested field. The nested fields and their types
 still show inside the column's `data_type`. If the warehouse documents nested
 fields, drop the condition to see their descriptions.
 
+Metadata access is granted per dataset: if `INFORMATION_SCHEMA.COLUMNS`
+returns "Access Denied", use the column-list probe below instead.
+
+### Column-list probe (no metadata access)
+
+Closes hole 3 when the dataset denies `INFORMATION_SCHEMA`. It reads the
+column list from the table itself. The workspace's result header gives the
+names, and `FORMAT('%T', ...)` prints every value as a typed SQL literal in
+the same column order, which gives the types:
+
+```sql
+SELECT
+  FORMAT('%T', sample_row) AS typed_values,
+  sample_row.*
+FROM
+  `<project>.<dataset>.<table>` AS sample_row
+WHERE
+  <partition_column> >= <one_recent_day>  -- required on large tables
+LIMIT 3;
+```
+
+Read each value in `typed_values` against the header:
+
+| Printed as | Type |
+|---|---|
+| `"text"` | STRING |
+| `1` | INT64 |
+| `1.5`, `2.0` (always a decimal point) | FLOAT64 |
+| `NUMERIC "1.5"`, `BIGNUMERIC "1.5"` | NUMERIC, BIGNUMERIC |
+| `DATE "..."`, `DATETIME "..."`, `TIMESTAMP "..."`, `TIME "..."` | the named type |
+| `true` / `false` | BOOL |
+| `b"..."` | BYTES |
+| `JSON '...'` | JSON |
+| `[...]` | ARRAY |
+| `STRUCT(...)` | STRUCT (field names are not printed) |
+| `NULL` | unknown |
+
+Rules for this probe:
+
+- **It bills like `SELECT *` over the filtered window**: `LIMIT` does not
+  reduce the scan. On a large table, run it only after the partition column
+  is confirmed, filter it to one recent day, and dry-run it first.
+- **`LIMIT 3` gives three chances past a NULL** at no extra cost. A column
+  that is NULL in every row gets recorded as `` `column` (type unverified) ``,
+  never guessed from its name.
+- **Nested STRUCT fields**: `typed_values` shows their values and types but
+  not their names. Take the names from the plain column if the workspace
+  shows them; otherwise record the column's nested fields as unverified.
+
 ### Table-type and DDL probe (object type, declared partitioning, view lineage)
 
 Closes hole 2, and gives hole 1 its first evidence. It is the cheapest probe
