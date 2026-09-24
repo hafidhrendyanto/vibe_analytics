@@ -274,42 +274,44 @@ ORDER BY
   column_table.ordinal_position;
 ```
 
-### Table-type probe (TABLE vs VIEW vs MATERIALIZED VIEW)
+### Table-type and DDL probe (object type, declared partitioning, view lineage)
 
-Closes hole 2, and it is the cheapest probe in the set: batch it across every
-table in one query with `IN`.
-
-```sql
-SELECT table_name, table_type
-FROM `<project>.<dataset>.INFORMATION_SCHEMA.TABLES`
-WHERE table_name IN ('<table_a>', '<table_b>');
-```
-
-### Partition and clustering probe (metadata)
-
-Closes hole 1 when the metadata view is readable.
+Closes hole 2, and gives hole 1 its first evidence. It is the cheapest probe
+in the set: batch it across every table of a dataset in one query with `IN`.
 
 ```sql
 SELECT
-  table_name,
-  partitioning_field,
-  clustering_fields
-FROM `<project>.<dataset>.INFORMATION_SCHEMA.TABLE_STORAGE_BY_*`  -- or the
--- workspace's equivalent; if the view is not accessible, skip to the
--- filtered-query probe below
-WHERE table_name = '<table_name>';
+  table_list.table_name,
+  table_list.table_type,
+  table_list.ddl
+FROM
+  `<project>.<dataset>.INFORMATION_SCHEMA.TABLES` AS table_list
+WHERE
+  table_list.table_name IN ('<table_a>', '<table_b>');
 ```
 
-If `INFORMATION_SCHEMA` is blocked for the user's role (403), the
-`tables.get`-style fallback needs code access the user may not have; fall
-through to the filtered-query probe instead of blocking.
+Read the `ddl` for three facts:
+
+- **For a table**: the `PARTITION BY` clause names the partition column and
+  its granularity (`DATE(event_time)`, or `_PARTITIONDATE` for
+  ingestion-time partitioning), and `CLUSTER BY` names the clustering
+  columns. Record them as declared, then confirm with the dry run.
+- **For a view**: the DDL has no partitioning of its own, but its `FROM`
+  clause names the backing table. That table is where the partitioning
+  lives, so it is the next thing to probe.
+- `table_type` reports `BASE TABLE` for a plain table; the profile's Type
+  line records it as TABLE.
+
+Metadata access is granted per dataset: if `INFORMATION_SCHEMA` returns
+"Access Denied" for a dataset (common for a view's backing dataset), skip
+straight to the dry-run probe below for its tables.
 
 ### Partition probe (dry run)
 
-Closes hole 1 empirically, when the metadata view lies about
-ingestion-time partitions or is inaccessible — the common case in
-organizations where most tables are views: the view reports no partitioning,
-yet its backing table prunes fine.
+Closes hole 1 empirically: it confirms what the DDL declares, and it is the
+only route when the DDL is unreadable — the common case in organizations
+where most tables are views: the view reports no partitioning and its
+backing dataset denies metadata access, yet the backing table prunes fine.
 
 The workspace typically shows neither bytes processed nor runtime, so the
 empirical probe goes through the org's dry-run function (e.g.
