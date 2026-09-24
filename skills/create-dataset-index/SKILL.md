@@ -268,11 +268,17 @@ ON
   AND column_table.table_schema = field_table.table_schema
   AND column_table.table_name = field_table.table_name
   AND column_table.column_name = field_table.column_name
+  AND field_table.field_path = column_table.column_name
 WHERE
   column_table.table_name = '<table_name>'
 ORDER BY
   column_table.ordinal_position;
 ```
+
+The `field_path` condition keeps one row per top-level column: without it, a
+STRUCT column repeats once per nested field. The nested fields and their types
+still show inside the column's `data_type`. If the warehouse documents nested
+fields, drop the condition to see their descriptions.
 
 ### Table-type and DDL probe (object type, declared partitioning, view lineage)
 

@@ -30,6 +30,7 @@ ON
   AND column_table.table_schema = field_table.table_schema
   AND column_table.table_name = field_table.table_name
   AND column_table.column_name = field_table.column_name
+  AND field_table.field_path = column_table.column_name
 WHERE
   column_table.table_name = '<table_name>'
 ORDER BY
