@@ -174,6 +174,17 @@ extract, per table referenced in `FROM` / `JOIN` clauses:
   what the table is for — draft Purpose and Business purpose from them, and
   mark every draft as a draft.
 
+**Mine with few agents.** Every subagent is a full model session billed
+against the user's usage, and SQL files are small. Read them yourself when
+the repo holds a few dozen files. For a larger repo, split the reading
+across **at most three subagents at a time**. Split by file count, not by
+directory: group the small directories together and give each subagent a
+balanced batch. A subagent per directory spends most of its cost starting
+up, for a handful of files. Run every subagent on the smaller model
+(Sonnet: `model: sonnet`), and tell it not to spawn subagents of its own.
+Each one returns the facts above as a compact list per table, with file and
+line; the main agent merges the lists and writes the profiles.
+
 Write the profile skeletons now from `references/profile-template.md`:
 identity list (ask the user or infer the project slug; Type stays a hole until
 probed), the mined sections, and holes left visibly open. Build the README's
@@ -523,6 +534,9 @@ documented, not just performed once.
   back. The back-and-forth is the only route, not a fallback.
 - **Never commit.** The user reviews the tree with `git status` / `git diff`
   and commits when satisfied.
+- **Spend the user's usage like your own.** At most three subagents at a
+  time, each on the smaller model (Sonnet), none spawning its own. Never
+  one agent per directory; a few dozen SQL files need no subagent at all.
 - **Batch honestly.** Three probes per round is a courtesy to the user's
   time, not a cap on curiosity; the conversational ledger keeps the queue so nothing is
   asked twice or forgotten.
