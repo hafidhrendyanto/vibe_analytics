@@ -175,9 +175,10 @@ extract, per table referenced in `FROM` / `JOIN` clauses:
   mark every draft as a draft.
 
 Write the profile skeletons now from `references/profile-template.md`:
-identity list (ask the user or infer the project slug; Type stays a hole
-until probed), the mined sections, and holes left visibly open. Build the README's quick-reference as you go, one row per
-profile, linking to it. Nothing is invented; skeletons are honest about gaps.
+identity list (ask the user or infer the project slug; Type stays a hole until
+probed), the mined sections, and holes left visibly open. Build the README's
+quick-reference as you go, one row per profile, linking to it. Nothing is
+invented; skeletons are honest about gaps.
 
 ## Step 3: The knowledge ledger
 
@@ -279,6 +280,14 @@ fields, drop the condition to see their descriptions.
 
 Metadata access is granted per dataset: if `INFORMATION_SCHEMA.COLUMNS`
 returns "Access Denied", use the column-list probe below instead.
+
+**A view's stored schema can be stale.** BigQuery saves a view's column list
+when the view is created or replaced; a `SELECT *` view picks up newer
+backing columns when it runs, but `INFORMATION_SCHEMA.COLUMNS` keeps the old
+list. When the SQL uses a column the schema probe did not return, dry-run
+`SELECT <column> FROM <view>` before calling it missing. `valid: True` means
+it exists: add it to Key fields and type it with the column-list probe, which
+reads the live columns. "Unrecognized name" means it is really gone.
 
 ### Column-list probe (no metadata access)
 
@@ -382,9 +391,14 @@ Read the `ddl` for two facts:
   clause names the backing table. That table is where the partitioning
   lives, so it is the next thing to probe.
 
-Metadata access is granted per dataset: if `INFORMATION_SCHEMA` returns
-"Access Denied" for a dataset (common for a view's backing dataset), skip
-straight to the dry-run probe below for its tables.
+Metadata access is granted per dataset, and a view's backing dataset often
+denies it. Treat the backing table's metadata as unreadable when its probe
+returns "Access Denied", or fails with an error the workspace hides (Mode
+shows only `BIGQUERY_API_ERR`) while passing the dry-run function. Try it
+once; on either failure, do not rewrite the probe. Record the Declared line
+as "not readable" and go straight to the dry-run probe below, run against the
+view: a dry run plans through the view's definition, so it measures the
+backing table's pruning anyway.
 
 ### Partition probe (dry run)
 
@@ -396,8 +410,7 @@ backing dataset denies metadata access, yet the backing table prunes fine.
 The workspace typically shows neither bytes processed nor runtime, so the
 empirical probe goes through the org's dry-run function (e.g.
 `functions.dry_run` in a shared `functions` dataset): it asks BigQuery for a
-query's scan estimate without executing the query, callable as plain SQL from
-any surface. Confirm the function's exact name once when the loop starts;
+query's scan estimate without executing the query, callable from Mode. Confirm the function's exact name once when the loop starts;
 if the workspace provides none, fall back to a runtime comparison as a weak
 signal.
 
@@ -406,11 +419,11 @@ partition column. Put them in one labeled statement so the pasted rows
 describe themselves:
 
 ```sql
-SELECT '<table>' AS table_name, 'unfiltered' AS variant, `functions.dry_run`("""
+SELECT '<table>' AS table_name, 'unfiltered' AS variant, `functions.dry_run`(r"""
 SELECT * FROM `<project>.<dataset>.<table>`
 """) AS result
 UNION ALL
-SELECT '<table>', '<column> one day', `functions.dry_run`("""
+SELECT '<table>', '<column> one day', `functions.dry_run`(r"""
 SELECT * FROM `<project>.<dataset>.<table>`
 WHERE <column> >= <day_start> AND <column> < <day_end>
 """);
@@ -418,7 +431,9 @@ WHERE <column> >= <day_start> AND <column> < <day_end>
 
 One statement holds a whole round: keep adding `UNION ALL` rows for more
 tables, and for a second candidate column when the SQL suggests one. Each
-call is a dry run, so a long batch still costs nothing.
+call is a dry run, so a long batch still costs nothing. The `r` prefix keeps
+backslashes in the inner query intact; without it, `\n` in a regex becomes a
+real line break and breaks the query.
 
 A large drop in reported bytes from the unfiltered row confirms the column
 **prunes**, by partitioning or by clustering: a filter on a clustered column
@@ -431,6 +446,23 @@ view's definition, this works through views too — it measures the behavior
 that matters, not the wrapper.
 Run both in the same session so the comparison is fair, and record both
 numbers with their date in the profile's Partitioning section.
+
+**What a dry-run result proves.** The dry-run function can check access with
+different credentials than the ones the workspace executes queries with; in
+one warehouse it passed tables the workspace was denied, and was denied
+tables the workspace could read. So:
+
+- **Its byte estimate is trustworthy**: it is the plan BigQuery would bill.
+- **Its syntax errors are real.** Wrapping a failing probe in the function is
+  the way to see a syntax error the workspace hides (Mode shows only
+  `BIGQUERY_API_ERR`).
+- **`valid: True` does not prove the workspace can run the query.** When a
+  probe passes the dry run but fails in the workspace, treat it as an access
+  gap: record it and move on; do not keep rewriting the probe.
+- **When the function is denied a table the workspace can query**, record the
+  Measured line as `not measurable (dry-run function denied, <date>)` and lean
+  on the DDL, unless the user has another way to see the estimate (such as
+  the BigQuery console).
 
 ### Meaning probe (sample rows)
 
@@ -472,9 +504,10 @@ When the probe loop winds down, finish the README. Read and adapt the bundled
 template at `references/readme-template.md`: it carries the full skeleton —
 the opening, the schema-discovery and partition-probe how-tos (the same
 templates the loop used, so future readers can re-verify), the project
-mapping, how to find a profile, and the quick-reference table. Fill every placeholder from what the build learned, and
-delete the optional sections the project does not need. The index is
-maintainable only if re-probing is documented, not just performed once.
+mapping, how to find a profile, and the quick-reference table. Fill every
+placeholder from what the build learned, and delete the optional sections the
+project does not need. The index is maintainable only if re-probing is
+documented, not just performed once.
 
 ## Working rules
 

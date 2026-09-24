@@ -44,19 +44,19 @@ Run the unfiltered and filtered calls in one statement and compare the
 reported bytes:
 
 ```sql
-SELECT '<table>' AS table_name, 'unfiltered' AS variant, `functions.dry_run`("""
+SELECT '<table>' AS table_name, 'unfiltered' AS variant, `functions.dry_run`(r"""
 SELECT * FROM `<project>.<dataset>.<table>`
 """) AS result
 UNION ALL
-SELECT '<table>', '<column> one day', `functions.dry_run`("""
+SELECT '<table>', '<column> one day', `functions.dry_run`(r"""
 SELECT * FROM `<project>.<dataset>.<table>`
 WHERE <column> >= <day_start> AND <column> < <day_end>
 """);
 ```
 
 A large byte drop from the unfiltered row confirms the column prunes. Add
-`UNION ALL` rows to check more tables in the same paste. Clustered columns prune too, so
-check the table's DDL to tell partitioning from clustering. Record both
+`UNION ALL` rows to check more tables in the same paste. Clustered columns
+prune too, so check the table's DDL to tell partitioning from clustering. Record both
 numbers with their date in the table's profile.
 
 ---
